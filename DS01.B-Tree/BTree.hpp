@@ -12,15 +12,18 @@
 namespace Sirius {
 
     #define BOMB printf("bomb\n");
-    #define DEBUG(_x) std::cout << _x << '\n';
+    #define DEBUG(_x) //std::cout << _x << '\n';
 
     /*
      * 文件上的B树
      */
-    template<typename Key, typename Val, int M = 4> //Key - Value Pair, M为阶数
+    template<class Key, class Val, int M = 4> //Key - Value Pair, M为阶数
     class BTree {
         typedef int fpos_t; //约定文件上的位置均用 int32 表示
         typedef int hash_t; //key 值统一经过哈希, 类型约定为 int32 (-1表示不存在)
+
+        static const int HASH_MOD = ((1<<30) - 1);
+
         static const fpos_t NULL_NUM = -1; //空文件位置
 
         static const int NODE_MIN_SIZE = (M + 1) / 2 - 1; //除根节点外, BTreeNode size下限
@@ -156,7 +159,7 @@ namespace Sirius {
             //如果已经满, 考虑分裂
             if (node.siz >= M) {
                 int mid = node.siz / 2; //mid 上提
-                hash_t midKeyHash = std::hash<Key>{}(node.key[mid]);
+                hash_t midKeyHash = node.key[mid];
                 Val midVal = node.val[mid];
 
                 DEBUG("mid up K-V: " << midKeyHash << " " << midVal)
@@ -262,7 +265,7 @@ namespace Sirius {
                     if (leftBro.siz > NODE_MIN_SIZE) { // borrow from left
                         //left key[i-1] node
                         DEBUG("left borrow")
-                        for (int j = leftBro.siz; j > 0; --j) {
+                        for (int j = node.siz; j > 0; --j) {
                             node.key[j] = node.key[j-1];
                             node.val[j] = node.val[j-1];
                             node.son[j+1] = node.son[j];
@@ -278,6 +281,7 @@ namespace Sirius {
                         parentNode.val[i - 1] = leftBro.val[leftBro.siz - 1];
                         leftBro.key[leftBro.siz - 1] = leftBro.son[leftBro.siz] = NULL_NUM;
                         leftBro.siz--;
+
                         fseek(data, parentNode.son[i-1], SEEK_SET);
                         fwrite(reinterpret_cast<char *>(&leftBro), sizeof(BTreeNode), 1, data);
                         fseek(data, node.parent, SEEK_SET);
@@ -301,8 +305,10 @@ namespace Sirius {
                             rightBro.val[j] = rightBro.val[j + 1];
                             rightBro.son[j + 1] = rightBro.son[j + 2];
                         }
+
                         rightBro.key[rightBro.siz-1] = rightBro.son[rightBro.siz] = NULL_NUM;
                         rightBro.siz--;
+
                         fseek(data, parentNode.son[i+1], SEEK_SET);
                         fwrite(reinterpret_cast<char *>(&rightBro), sizeof(BTreeNode), 1, data);
                         fseek(data, node.parent, SEEK_SET);
@@ -337,8 +343,8 @@ namespace Sirius {
                                 parentNode.son[j] = parentNode.son[j+1];
                             }
                             parentNode.siz--;
+                            parentNode.key[parentNode.siz] = -1;
                             base.recyclePool.push(nodePos); //delete node
-                            parentNode.son[i] = -1;
                             if (parentNode.siz <= 0) { //父节点删空, 减少一层
                                 base.recyclePool.push(node.parent);
                                 leftBro.parent = parentNode.parent;
@@ -373,6 +379,7 @@ namespace Sirius {
                                 fseek(data, rightBro.son[0], SEEK_SET);
                                 fwrite(reinterpret_cast<char *>(&nodePos), sizeof(fpos_t), 1, data);
                             }
+
                             for (int j = 0; j < rightBro.siz; ++j) {
                                 node.key[node.siz + 1 + j] = rightBro.key[j];
                                 node.val[node.siz + 1 + j] = rightBro.val[j];
@@ -386,14 +393,17 @@ namespace Sirius {
                             fseek(data, nodePos, SEEK_SET);
                             fwrite(reinterpret_cast<char *>(&node), sizeof(BTreeNode), 1, data);
                             //node key[i] right key[i+1], delete key
+
                             base.recyclePool.push(parentNode.son[i+1]); //delete right
-                            parentNode.son[i+1] = -1;
+
                             for (int j = i+1; j < parentNode.siz; ++j) {
                                 parentNode.key[j-1] = parentNode.key[j];
                                 parentNode.val[j-1] = parentNode.val[j];
                                 parentNode.son[j] = parentNode.son[j+1];
                             }
                             parentNode.siz--;
+                            parentNode.key[parentNode.siz] = -1;
+
                             if (parentNode.siz <= 0) { //父节点删空, 减少一层
                                 base.recyclePool.push(node.parent);
                                 node.parent = parentNode.parent;
@@ -434,6 +444,7 @@ namespace Sirius {
                 node.key[i] = node.key[i + 1];
                 node.val[i] = node.val[i + 1];
             }
+            node.key[node.siz] = -1;
 
             deleteFix(node, nodePos);
 
@@ -492,7 +503,7 @@ namespace Sirius {
          * 返回是否插入成功
          */
         bool insert(const Key &key, const Val &val) {
-            hash_t keyHash = std::hash<Key>{}(key);
+            hash_t keyHash = std::hash<Key>{}(key) % HASH_MOD;
             BTreeNode nowNode;
             fseek(data, base.rootPos, SEEK_SET);
             fpos_t nowNodePos = ftell(data);
@@ -529,7 +540,7 @@ namespace Sirius {
          * 返回: 是否找到, 值的返回采用引用的方式提高效率
          */
         bool find(const Key &key, Val &val) const {
-            hash_t keyHash = std::hash<Key>{}(key);
+            hash_t keyHash = std::hash<Key>{}(key) % HASH_MOD;
             BTreeNode nowNode;
             fseek(data, base.rootPos, SEEK_SET);
 
@@ -561,7 +572,7 @@ namespace Sirius {
          * 返回: 是否修改成功
          */
         bool modify(const Key &key, const Val &val) {
-            hash_t keyHash = std::hash<Key>{}(key);
+            hash_t keyHash = std::hash<Key>{}(key) % HASH_MOD;
             BTreeNode nowNode;
             fseek(data, base.rootPos, SEEK_SET);
             fpos_t nowNodePos = ftell(data);
@@ -597,7 +608,7 @@ namespace Sirius {
          * 返回: 是否删除成功 (即是否找到)
          */
         bool del(const Key &key) {
-            hash_t keyHash = std::hash<Key>{}(key);
+            hash_t keyHash = std::hash<Key>{}(key) % HASH_MOD;
             BTreeNode nowNode;
             fseek(data, base.rootPos, SEEK_SET);
             fpos_t nowNodePos = ftell(data);
@@ -609,11 +620,13 @@ namespace Sirius {
             fread(reinterpret_cast<char *>(&nowNode), sizeof(BTreeNode), 1, data);
             while (true) {
                 for (int i = 0; i < nowNode.siz + 1; ++i) {
+                    DEBUG("now in: " << nowNodePos << " " << i)
                     if (nowNode.key[i] == keyHash) {
-                        if (nowNode.son[nowNode.siz] != NULL_NUM) { //非最后一层
+                        //key[i] son[i+1]
+                        if (nowNode.son[i+1] != NULL_NUM) { //非最后一层
                             BTreeNode targetNode;
-                            int targetNodePos = nowNode.son[nowNode.siz];
-                            fseek(data, nowNode.son[nowNode.siz], SEEK_SET);
+                            int targetNodePos = nowNode.son[i+1];
+                            fseek(data, nowNode.son[i+1], SEEK_SET);
                             fread(reinterpret_cast<char*>(&targetNode), sizeof(BTreeNode), 1, data);
                             while (targetNode.son[0] != NULL_NUM) { //查后继
                                 targetNodePos = targetNode.son[0];
