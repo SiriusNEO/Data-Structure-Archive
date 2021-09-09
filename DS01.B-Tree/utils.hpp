@@ -10,8 +10,13 @@
 #include <cstdlib>
 #include <string>
 #include <map>
+#include <ctime>
 
 #define INS(_x) btree.insert(_x, _x);
+
+#define CLOCKINIT() clock_t st = clock();
+#define STANDINGBY() st = clock();
+#define COMPLETE(_x) printf(_x": %.6lf\n", (clock()-st)/(double)CLOCKS_PER_SEC);
 
 inline int randInt(int l, int r) {
     return rand()%(r-l+1)+l;
@@ -90,34 +95,40 @@ void del_test2() {
 
 void string_test() {
     srand(time(0));
-    Sirius::BTree<std::string, int, 1000> btree("data.db");
+    Sirius::BTree<std::string, int, 512> btree("data.db");
     std::map<std::string, int> std_map;
 
-    const int TOTAL = 100000, DELETE = 10000;
+    const int TOTAL = 200000, DELETE = 200000;
 
+    CLOCKINIT()
+
+    std::cout << "insert test\n";
+    STANDINGBY()
     for (int i = 1; i <= TOTAL; i++) {
         std::string ins_str = randString(32);
         std_map[ins_str] = i;
-        std::cout << i << ' ' << btree.insert(ins_str, i) << '\n';
+        btree.insert(ins_str, i);
     }
+    COMPLETE("insert: ")
 
+    std::cout << "find test\n";
+    STANDINGBY()
     for (auto it = std_map.begin(); it != std_map.end(); it++) {
         int result = -1;
-        std::cout << btree.find(it->first, result) << '\n';
-        std::cout << "result: " << result << '\n';
+        btree.find(it->first, result);
+        //std::cout << "result: " << result << '\n';
     }
+    COMPLETE("find: ")
 
+    std::cout << "del test\n";
     int cnt = 0;
-    for (auto it = std_map.begin(); cnt <= DELETE; it++, cnt++) {
+    STANDINGBY()
+    for (auto it = std_map.begin(); cnt < DELETE; it++, cnt++) {
         btree.del(it->first);
+        //std::cout << cnt << '\n';
     }
-    std::cout << "del" << '\n';
-    cnt = 0;
-    for (auto it = std_map.begin(); cnt <= DELETE + 5; it++, cnt++) {
-        int result = -1;
-        std::cout << btree.find(it->first, result) << '\n';
-        std::cout << "result: " << result << '\n';
-    }
+    COMPLETE("del: ")
+    btree.display();
 }
 
 #endif //DS01_B_TREE_UTILS_HPP

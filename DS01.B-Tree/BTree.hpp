@@ -7,6 +7,7 @@
 
 #include <cstdio>
 #include <iostream>
+#include <algorithm>
 #include <functional>
 
 namespace Sirius {
@@ -21,11 +22,8 @@ namespace Sirius {
     class BTree {
         typedef int fpos_t; //约定文件上的位置均用 int32 表示
         typedef int hash_t; //key 值统一经过哈希, 类型约定为 int32 (-1表示不存在)
-
         static const int HASH_MOD = ((1<<30) - 1);
-
         static const fpos_t NULL_NUM = -1; //空文件位置
-
         static const int NODE_MIN_SIZE = (M + 1) / 2 - 1; //除根节点外, BTreeNode size下限
 
     private:
@@ -59,6 +57,9 @@ namespace Sirius {
             }
 
             void push(fpos_t freePos) {
+                if (tp == LEN) { //满, 浪费
+                    return;
+                }
                 for (int i = 1; i <= LEN; ++i)
                     if (pool[i] == freePos) return; // 不重复回收
                 pool[++tp] = freePos;
@@ -70,10 +71,6 @@ namespace Sirius {
 
             bool empty() const {
                 return tp == 0;
-            }
-
-            bool full() const {
-                return tp == LEN;
             }
 
             void pop() {
@@ -89,7 +86,7 @@ namespace Sirius {
         struct TreeBase {
             fpos_t rootPos; //根节点
             size_t siz;
-            RecyclePool<5> recyclePool;
+            RecyclePool<2002> recyclePool;
 
             explicit TreeBase(fpos_t _rootPos): siz(0), rootPos(_rootPos), recyclePool() {
             }
@@ -220,16 +217,13 @@ namespace Sirius {
                     BTreeNode parentNode;
                     fseek(data, node.parent, SEEK_SET);
                     fread(reinterpret_cast<char *>(&parentNode), sizeof(BTreeNode), 1, data);
-                    for (int i = 0; i < parentNode.siz + 1; ++i) {
-                        if ((parentNode.key[i] == NULL_NUM || midKeyHash < parentNode.key[i]) && (i == 0 || midKeyHash > parentNode.key[i - 1])) {
-                            fseek(data, nodePos, SEEK_SET);
-                            fwrite(reinterpret_cast<char *>(&node), sizeof(BTreeNode), 1, data);
-                            fseek(data, newNodePos, SEEK_SET);
-                            fwrite(reinterpret_cast<char *>(&newNode), sizeof(BTreeNode), 1, data);
-                            nodeInsert(parentNode, node.parent, i, midKeyHash, midVal, newNodePos); //一定找得到
-                            return;
-                        }
-                    }
+                    int i = std::lower_bound(parentNode.key, parentNode.key+parentNode.siz, midKeyHash) - parentNode.key;
+                    fseek(data, nodePos, SEEK_SET);
+                    fwrite(reinterpret_cast<char *>(&node), sizeof(BTreeNode), 1, data);
+                    fseek(data, newNodePos, SEEK_SET);
+                    fwrite(reinterpret_cast<char *>(&newNode), sizeof(BTreeNode), 1, data);
+                    nodeInsert(parentNode, node.parent, i, midKeyHash, midVal, newNodePos); //一定找得到
+                    return;
                 }
             }
             fseek(data, nodePos, SEEK_SET);
@@ -513,25 +507,20 @@ namespace Sirius {
             }
 
             while (true) {
-                for (int i = 0; i < nowNode.siz + 1; ++i) { //注意+1, 因为可能插在最后
-                    if (nowNode.key[i] == keyHash) {
-                        //key值重复，暂未确定处理方法
-                        DEBUG("key duplicate!")
-                        return false;
-                    }
-                    if ((nowNode.key[i] == NULL_NUM || keyHash < nowNode.key[i]) && (i == 0 || keyHash > nowNode.key[i - 1])) {
-                        if (nowNode.son[i] == NULL_NUM) { //最后一层, i与后面后移
-                            DEBUG("insert K-V pair: " << keyHash << " " << val)
-                            nodeInsert(nowNode, nowNodePos, i, keyHash, val, NULL_NUM);
-                            base.siz++;
-                            return true;
-                        }
-                        nowNodePos = nowNode.son[i];
-                        fseek(data, nowNode.son[i], SEEK_SET);
-                        fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
-                        break;
-                    }
+                int i = std::lower_bound(nowNode.key, nowNode.key+nowNode.siz, keyHash) - nowNode.key;
+                if (nowNode.key[i] == keyHash) {
+                    DEBUG("key duplicate")
+                    return false;
                 }
+                if (nowNode.son[i] == NULL_NUM) { //最后一层, i与后面后移
+                    DEBUG("insert K-V pair: " << keyHash << " " << val)
+                    nodeInsert(nowNode, nowNodePos, i, keyHash, val, NULL_NUM);
+                    base.siz++;
+                    return true;
+                }
+                nowNodePos = nowNode.son[i];
+                fseek(data, nowNode.son[i], SEEK_SET);
+                fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
             }
         }
 
@@ -550,20 +539,16 @@ namespace Sirius {
 
             fread(reinterpret_cast<char *>(&nowNode), sizeof(BTreeNode), 1, data);
             while (true) {
-                for (int i = 0; i < nowNode.siz + 1; ++i) {
-                    if (nowNode.key[i] == keyHash) {
-                        val = nowNode.val[i]; //found
-                        return true;
-                    }
-                    if ((nowNode.key[i] == NULL_NUM || keyHash < nowNode.key[i]) && (i == 0 || keyHash > nowNode.key[i - 1])) {
-                        if (nowNode.son[i] == NULL_NUM) { //最后一层, 找不到
-                            return false;
-                        }
-                        fseek(data, nowNode.son[i], SEEK_SET);
-                        fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
-                        break;
-                    }
+                int i = std::lower_bound(nowNode.key, nowNode.key+nowNode.siz, keyHash) - nowNode.key;
+                if (nowNode.key[i] == keyHash) {
+                    val = nowNode.val[i]; //found
+                    return true;
                 }
+                if (nowNode.son[i] == NULL_NUM) { //最后一层, 找不到
+                    return false;
+                }
+                fseek(data, nowNode.son[i], SEEK_SET);
+                fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
             }
         }
 
@@ -583,23 +568,19 @@ namespace Sirius {
 
             fread(reinterpret_cast<char *>(&nowNode), sizeof(BTreeNode), 1, data);
             while (true) {
-                for (int i = 0; i < nowNode.siz + 1; ++i) {
-                    if (nowNode.key[i] == keyHash) {
-                        nowNode.val[i] = val;
-                        fseek(data, nowNodePos, SEEK_SET);
-                        fwrite(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data);
-                        return true;
-                    }
-                    if ((nowNode.key[i] == NULL_NUM || keyHash < nowNode.key[i]) && (i == 0 || keyHash > nowNode.key[i - 1])) {
-                        if (nowNode.son[i] == NULL_NUM) { //最后一层, 找不到
-                            return false;
-                        }
-                        nowNodePos = nowNode.son[i];
-                        fseek(data, nowNode.son[i], SEEK_SET);
-                        fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
-                        break;
-                    }
+                int i = std::lower_bound(nowNode.key, nowNode.key+nowNode.siz, keyHash) - nowNode.key;
+                if (nowNode.key[i] == keyHash) {
+                    nowNode.val[i] = val;
+                    fseek(data, nowNodePos, SEEK_SET);
+                    fwrite(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data);
+                    return true;
                 }
+                if (nowNode.son[i] == NULL_NUM) { //最后一层, 找不到
+                    return false;
+                }
+                nowNodePos = nowNode.son[i];
+                fseek(data, nowNode.son[i], SEEK_SET);
+                fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
             }
         }
 
@@ -613,48 +594,44 @@ namespace Sirius {
             fseek(data, base.rootPos, SEEK_SET);
             fpos_t nowNodePos = ftell(data);
 
-            if (base.siz == 0) {
+            if (base.siz <= 0) {
+                DEBUG("empty tree")
                 return false;
             }
 
             fread(reinterpret_cast<char *>(&nowNode), sizeof(BTreeNode), 1, data);
             while (true) {
-                for (int i = 0; i < nowNode.siz + 1; ++i) {
-                    DEBUG("now in: " << nowNodePos << " " << i)
-                    if (nowNode.key[i] == keyHash) {
-                        //key[i] son[i+1]
-                        if (nowNode.son[i+1] != NULL_NUM) { //非最后一层
-                            BTreeNode targetNode;
-                            int targetNodePos = nowNode.son[i+1];
-                            fseek(data, nowNode.son[i+1], SEEK_SET);
+                int i = std::lower_bound(nowNode.key, nowNode.key+nowNode.siz, keyHash) - nowNode.key;
+                if (nowNode.key[i] == keyHash) {
+                    //key[i] son[i+1]
+                    if (nowNode.son[i+1] != NULL_NUM) { //非最后一层
+                        BTreeNode targetNode;
+                        int targetNodePos = nowNode.son[i+1];
+                        fseek(data, nowNode.son[i+1], SEEK_SET);
+                        fread(reinterpret_cast<char*>(&targetNode), sizeof(BTreeNode), 1, data);
+                        while (targetNode.son[0] != NULL_NUM) { //查后继
+                            targetNodePos = targetNode.son[0];
+                            fseek(data, targetNode.son[0], SEEK_SET);
                             fread(reinterpret_cast<char*>(&targetNode), sizeof(BTreeNode), 1, data);
-                            while (targetNode.son[0] != NULL_NUM) { //查后继
-                                targetNodePos = targetNode.son[0];
-                                fseek(data, targetNode.son[0], SEEK_SET);
-                                fread(reinterpret_cast<char*>(&targetNode), sizeof(BTreeNode), 1, data);
-                            }
-                            nowNode.key[i] = targetNode.key[0];
-                            nowNode.val[i] = targetNode.val[0];
-                            fseek(data, nowNodePos, SEEK_SET);
-                            fwrite(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data);
-                            nodeDelete(targetNode, targetNodePos, 0);
                         }
-                        else {
-                            nodeDelete(nowNode, nowNodePos, i);
-                        }
-                        base.siz--;
-                        return true;
+                        nowNode.key[i] = targetNode.key[0];
+                        nowNode.val[i] = targetNode.val[0];
+                        fseek(data, nowNodePos, SEEK_SET);
+                        fwrite(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data);
+                        nodeDelete(targetNode, targetNodePos, 0);
                     }
-                    if ((nowNode.key[i] == NULL_NUM || keyHash < nowNode.key[i]) && (i == 0 || keyHash > nowNode.key[i - 1])) {
-                        if (nowNode.son[i] == NULL_NUM) { //最后一层, 找不到
-                            return false;
-                        }
-                        nowNodePos = nowNode.son[i];
-                        fseek(data, nowNode.son[i], SEEK_SET);
-                        fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
-                        break;
+                    else {
+                        nodeDelete(nowNode, nowNodePos, i);
                     }
+                    base.siz--;
+                    return true;
                 }
+                if (nowNode.son[i] == NULL_NUM) { //最后一层, 找不到
+                    return false;
+                }
+                nowNodePos = nowNode.son[i];
+                fseek(data, nowNode.son[i], SEEK_SET);
+                fread(reinterpret_cast<char*>(&nowNode), sizeof(BTreeNode), 1, data); //往下走
             }
         }
     };
