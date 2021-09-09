@@ -1,6 +1,4 @@
-# Database
-
-### B-Tree
+# B-Tree
 
 设计思路：
 
