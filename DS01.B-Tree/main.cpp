@@ -2,5 +2,5 @@
 
 int main() {
     string_test();
-	return 0;
+    return 0;
 }
