@@ -106,27 +106,47 @@ void insert_test2() {
 }
 
 void del_test1() {
-    Sirius::BTree<int, int, 6> btree("data.db");
-    for (int i = 1; i <= 10; i++) INS(i)
-    for (int i = 1; i <= 10; i++) std::cout << btree.del(i) << '\n';
+    Sirius::BTree<int, int, 5> btree("data.db");
+    for (int i = 1; i <= 20; i++) INS(i)
+    //for (int i = 20; i >= 17; --i) btree.del(i);
+    btree.display();
+    btree.del(9);
+    btree.del(10);
+    btree.del(11);
+    btree.del(12);
+    btree.del(13);
+
+    //btree.del(6);
     btree.display();
 }
 
 void del_test2() {
     Sirius::BTree<std::string, int, 5> btree("data.db");
-    for (int i = 1; i <= 30; i++) {
+    for (int i = 1; i <= 300; i++) {
         btree.insert(std::to_string(i), i);
     }
-    for (int i = 1; i <= 10; i++) {
-        std::cout << "key: " << std::hash<std::string>{}(std::to_string(i)) % ((1<<30) - 1) << '\n';
-        std::cout << btree.del(std::to_string(i)) << '\n';
+    for (int i = 1; i <= 300; i++) {
+        int x;
+        std::cout << std::hash<std::string>{}(std::to_string(i)) % 1073741827 << '\n';
+        std::cout << i << ' ' << btree.find(std::to_string(i), x) << '\n';
+        btree.del(std::to_string(i));
+    }
+    btree.display();
+    return;
+    for (int i = 1; i <= 300; i++) {
+        std::cout << i << '\n';
+        bool del = btree.del(std::to_string(i));
+        if (!del) {
+            std::cout << std::hash<std::string>{}(std::to_string(i)) % 1073741827 << '\n';
+            break;
+        }
     }
     btree.display();
 }
 
 void string_test() {
     srand(time(0));
-    Sirius::BTree<std::string, int, 512> btree("data.db");
+    Sirius::BTree<std::string, int, 700> btree("data.db");
     std::map<std::string, int> std_map;
 
     const int TOTAL = 1000000, DELETE = 1000000;
