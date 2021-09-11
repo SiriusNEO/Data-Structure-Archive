@@ -110,30 +110,41 @@ namespace Sirius {
         }
 
         void read(fpos_t diskPos, Val& val) {
-            DEBUG("read...")
-            bool found = get(diskPos, val);
+            //DEBUG("read...")
+            /*bool found = get(diskPos, val);
             if (!found) {
                 fseek(file, diskPos, SEEK_SET);
                 fread(reinterpret_cast<char *>(&val), sizeof(Val), 1, file);
                 set(diskPos, val);
             } else {
                 get(diskPos, val);
-            }
+            }*/
+            if (diskPos < 0) return; //invalid pos
+            fseek(file, diskPos, SEEK_SET);
+            fread(reinterpret_cast<char *>(&val), sizeof(val), 1, file);
         }
 
-        void write(fpos_t diskPos, const Val& val) {
-            DEBUG("write...")
-            set(diskPos, val);
+        void write(fpos_t diskPos, Val& val) {
+            //DEBUG("write...")
+            //set(diskPos, val);
+            if (diskPos < 0) return; //invalid pos
+            fseek(file, diskPos, SEEK_SET);
+            fwrite(reinterpret_cast<char *>(&val), sizeof(val), 1, file);
         }
 
         void writeParent(fpos_t diskPos, fpos_t parent) {
-            if (table.find(diskPos) != table.end()) {
+            /*if (table.find(diskPos) != table.end()) {
                 table[diskPos]->val.parent = parent;
                 return;
-            }
-
+            }*/
+            if (diskPos < 0) return; //invalid pos
             fseek(file, diskPos, SEEK_SET);
-            fwrite(reinterpret_cast<char *>(&parent), sizeof(fpos_t), 1, file);
+            //fwrite(reinterpret_cast<char *>(&parent), sizeof(fpos_t), 1, file);
+            Val tmpVal;
+            fread(reinterpret_cast<char *>(&tmpVal), sizeof(Val), 1, file);
+            tmpVal.parent = parent;
+            fseek(file, diskPos, SEEK_SET);
+            fwrite(reinterpret_cast<char *>(&tmpVal), sizeof(Val), 1, file);
         }
 
         void display() {

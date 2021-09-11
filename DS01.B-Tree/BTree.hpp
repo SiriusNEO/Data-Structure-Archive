@@ -9,6 +9,7 @@
 #include <iostream>
 #include <algorithm>
 #include <functional>
+#include <cassert>
 #include "cache.hpp"
 
 namespace Sirius {
@@ -91,7 +92,7 @@ namespace Sirius {
         } base;
 
         FILE *data;
-        LRUCache<BTreeNode, 2005> disk;
+        LRUCache<BTreeNode, 1> disk;
 
         /*
          * 内部函数, 获取一个内存空位, 用于开一块新的BTreeNode
@@ -169,19 +170,14 @@ namespace Sirius {
                     newNode.key[i - mid - 1] = node.key[i];
                     newNode.val[i - mid - 1] = node.val[i];
                     newNode.son[i - mid] = node.son[i + 1];
-                    if (node.son[i+1] != NULL_NUM) {
-                        DEBUG("modified son: " << node.son[i+1])
-                        disk.writeParent(node.son[i+1], newNodePos);
-                    }
+                    disk.writeParent(node.son[i+1], newNodePos);
                     node.key[i] = node.son[i + 1] = NULL_NUM;
                 }
                 node.siz -= newNode.siz;
 
                 //son 数组多一个处理
                 newNode.son[0] = node.son[mid + 1];
-                if (node.son[mid + 1] != NULL_NUM) {
-                    disk.writeParent(node.son[mid+1], newNodePos);
-                }
+                disk.writeParent(node.son[mid+1], newNodePos);
                 node.son[mid + 1] = NULL_NUM;
 
                 //mid 在原块删除
@@ -299,16 +295,12 @@ namespace Sirius {
                             leftBro.key[leftBro.siz] = parentNode.key[i-1];
                             leftBro.val[leftBro.siz] = parentNode.val[i-1];
                             leftBro.son[leftBro.siz + 1] = node.son[0];
-                            if (node.son[0] != NULL_NUM) {
-                                disk.writeParent(node.son[0], parentNode.son[i-1]);
-                            }
+                            disk.writeParent(node.son[0], parentNode.son[i-1]);
                             for (int j = 0; j < node.siz; ++j) {
                                 leftBro.key[leftBro.siz + 1 + j] = node.key[j];
                                 leftBro.val[leftBro.siz + 1 + j] = node.val[j];
                                 leftBro.son[leftBro.siz + 1 + j + 1] = node.son[j + 1];
-                                if (node.son[j+1] != NULL_NUM) {
-                                    disk.writeParent(node.son[j+1], parentNode.son[i-1]);
-                                }
+                                disk.writeParent(node.son[j+1], parentNode.son[i-1]);
                             }
 
                             leftBro.siz += node.siz + 1;
@@ -324,21 +316,9 @@ namespace Sirius {
                             base.recyclePool.push(nodePos); //delete node
 
                             if (parentNode.siz <= 0) { //父节点删空, 减少一层
-                                /*base.recyclePool.push(node.parent);
-                                leftBro.parent = parentNode.parent;
-                                if (parentNode.parent != NULL_NUM) {
-                                    BTreeNode grandpaNode;
-                                    disk.read(parentNode.parent, grandpaNode);
-                                    for (int j = 0; j < grandpaNode.siz + 1; ++j)
-                                        if (grandpaNode.son[j] == node.parent) {
-                                            grandpaNode.son[j] = parentNode.son[i-1];
-                                            disk.write(parentNode.parent, grandpaNode);
-                                            disk.write(parentNode.son[i-1], leftBro);
-                                            deleteFix(grandpaNode, parentNode.parent);
-                                            return;
-                                        }
-                                } else {*/
                                 base.rootPos = parentNode.son[i-1];
+                                base.recyclePool.push(node.parent);
+                                node.parent = NULL_NUM;
                                 disk.write(parentNode.son[i-1], leftBro);
                                 return;
                             } else {
@@ -346,23 +326,19 @@ namespace Sirius {
                                 disk.write(parentNode.son[i-1], leftBro);
                                 deleteFix(parentNode, leftBro.parent);
                             }
-                        } else {
+                        } else if (rightBro.siz > 0) {
                             DEBUG("right merge")
                             //node key[i] right, right -> node
                             node.key[node.siz] = parentNode.key[i];
                             node.val[node.siz] = parentNode.val[i];
                             node.son[node.siz + 1] = rightBro.son[0];
-                            if (rightBro.son[0] != NULL_NUM) {
-                                disk.writeParent(rightBro.son[0], nodePos);
-                            }
+                            disk.writeParent(rightBro.son[0], nodePos);
 
                             for (int j = 0; j < rightBro.siz; ++j) {
                                 node.key[node.siz + 1 + j] = rightBro.key[j];
                                 node.val[node.siz + 1 + j] = rightBro.val[j];
                                 node.son[node.siz + 1 + j + 1] = rightBro.son[j + 1];
-                                if (rightBro.son[j+1] != NULL_NUM) {
-                                    disk.writeParent(rightBro.son[j+1], nodePos);
-                                }
+                                disk.writeParent(rightBro.son[j+1], nodePos);
                             }
                             node.siz += rightBro.siz + 1;
                             //node key[i] right key[i+1], delete key
@@ -375,24 +351,11 @@ namespace Sirius {
                                 parentNode.son[j] = parentNode.son[j+1];
                             }
                             parentNode.siz--;
-                            parentNode.key[parentNode.siz] = -1;
+                            parentNode.key[parentNode.siz] = parentNode.son[parentNode.siz + 1] = NULL_NUM;
 
                             if (parentNode.siz <= 0) { //父节点删空, 减少一层
-                                /*base.recyclePool.push(node.parent);
-                                node.parent = parentNode.parent;
-                                if (parentNode.parent != NULL_NUM) {
-                                    BTreeNode grandpaNode;
-                                    disk.read(parentNode.parent, grandpaNode);
-                                    for (int j = 0; j < grandpaNode.siz + 1; ++j)
-                                        if (grandpaNode.son[j] == node.parent) {
-                                            grandpaNode.son[j] = nodePos;
-                                            disk.write(parentNode.parent, grandpaNode);
-                                            disk.write(nodePos, node);
-                                            deleteFix(grandpaNode, parentNode.parent);
-                                            return;
-                                        }
-                                } else {*/
                                 base.rootPos = parentNode.son[i];
+                                base.recyclePool.push(node.parent);
                                 node.parent = NULL_NUM;
                                 disk.write(nodePos, node);
                                 return;
@@ -401,6 +364,8 @@ namespace Sirius {
                                 disk.write(nodePos, node);
                                 deleteFix(parentNode, node.parent);
                             }
+                        } else {
+                            throw "Panic";
                         }
                     }
                     break;
@@ -420,14 +385,12 @@ namespace Sirius {
                 node.val[i] = node.val[i + 1];
             }
             node.key[node.siz] = node.son[node.siz+1] = NULL_NUM;
-
+            disk.write(nodePos, node);
             deleteFix(node, nodePos);
 
             if (base.rootPos == nodePos && node.siz == 0) {
                 base.rootPos = sizeof(TreeBase);
             }
-
-            disk.write(nodePos, node);
         }
 
     public:
@@ -576,6 +539,11 @@ namespace Sirius {
 
             disk.read(nowNodePos, nowNode);
             while (true) {
+                if (nowNode.siz > M) {
+                    std::cout << nowNode.parent << ' ' << nowNode.siz << '\n';
+                }
+                assert(nowNode.siz < M);
+                assert(nowNode.siz >= 0);
                 int i = std::lower_bound(nowNode.key, nowNode.key+nowNode.siz, keyHash) - nowNode.key;
                 if (nowNode.key[i] == keyHash) {
                     //son[i] key[i] son[i+1]
@@ -587,6 +555,7 @@ namespace Sirius {
                             targetNodePos = targetNode.son[0];
                             disk.read(targetNodePos, targetNode);
                         }
+                        DEBUG("target: " << targetNodePos)
                         nowNode.key[i] = targetNode.key[0];
                         nowNode.val[i] = targetNode.val[0];
                         disk.write(nowNodePos, nowNode);

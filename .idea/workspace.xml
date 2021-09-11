@@ -27,7 +27,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7f31118f-fed6-46f2-b444-db65356d1859" name="Default Changelist" comment="" />
+    <list default="true" id="930d63d4-c117-41c6-838e-e27dec0aceba" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -37,9 +37,9 @@
     <option name="formatViaClangd" value="false" />
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/Data-Structure-Project" />
   </component>
-  <component name="ProjectId" id="1xsfAjDreWv5mzdgkAi1VPRk3Fd" />
+  <component name="ProjectId" id="1xzDlSlvYLd6Nh7EmS8tE4ZRwB4" />
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -49,26 +49,16 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="WebServerToolWindowFactoryState" value="true" />
     <property name="cf.first.check.clang-format" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/.." />
-  </component>
-  <component name="RunManager">
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="7f31118f-fed6-46f2-b444-db65356d1859" name="Default Changelist" comment="" />
-      <created>1631148575080</created>
+      <changelist id="930d63d4-c117-41c6-838e-e27dec0aceba" name="Default Changelist" comment="" />
+      <created>1631349174445</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1631148575080</updated>
-      <workItem from="1631148576362" duration="12812000" />
-      <workItem from="1631161829517" duration="14339000" />
-      <workItem from="1631179593762" duration="31657000" />
+      <updated>1631349174445</updated>
+      <workItem from="1631349176387" duration="153000" />
     </task>
     <servers />
   </component>
@@ -82,20 +72,5 @@
         </entry>
       </map>
     </option>
-    <option name="oldMeFiltersMigrated" value="true" />
-  </component>
-  <component name="WindowStateProjectService">
-    <state x="552" y="178" key="#New_File_Extensions" timestamp="1631161863297">
-      <screen x="0" y="0" width="1920" height="1040" />
-    </state>
-    <state x="552" y="178" key="#New_File_Extensions/0.0.1920.1040@0.0.1920.1040" timestamp="1631161863297" />
-    <state x="740" y="275" key="FileChooserDialogImpl" timestamp="1631161026139">
-      <screen x="0" y="0" width="1920" height="1040" />
-    </state>
-    <state x="740" y="275" key="FileChooserDialogImpl/0.0.1920.1040@0.0.1920.1040" timestamp="1631161026139" />
-    <state x="92" y="92" width="1736" height="856" key="com.intellij.history.integration.ui.views.FileHistoryDialog" timestamp="1631151579467">
-      <screen x="0" y="0" width="1920" height="1040" />
-    </state>
-    <state x="92" y="92" width="1736" height="856" key="com.intellij.history.integration.ui.views.FileHistoryDialog/0.0.1920.1040@0.0.1920.1040" timestamp="1631151579467" />
   </component>
 </project>
