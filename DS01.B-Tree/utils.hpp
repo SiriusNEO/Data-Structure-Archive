@@ -132,10 +132,10 @@ void del_test1() {
 void del_test2() {
     Sirius::BTree<std::string, int, 5> btree("data.db");
     std::map<int, bool> keyMap;
-    for (int i = 30000; i <= 60000; i++) {
+    for (int i = 1; i <= 30000; i++) {
         btree.insert(std::to_string(i), i);
-        assert(!keyMap[std::hash<std::string>{}(std::to_string(i)) % 1073741827]);
-        keyMap[std::hash<std::string>{}(std::to_string(i)) % 1073741827] = 1;
+        assert(!keyMap[std::hash<std::string>{}(std::to_string(i)) % (2147483647)]);
+        keyMap[std::hash<std::string>{}(std::to_string(i)) % 2147483647] = 1;
         int x;
         bool founded = btree.find(std::to_string(i), x);
         if (!founded) {
@@ -143,11 +143,11 @@ void del_test2() {
             return;
         }
     }
-    for (int i = 30000; i <= 60000; i++) {
+    for (int i = 1; i <= 30000; i++) {
         std::cout << i << '\n';
         bool del = btree.del(std::to_string(i));
         /*if (!del) {
-            std::cout << std::hash<std::string>{}(std::to_string(i)) % 1073741827 << '\n';
+            std::cout << std::hash<std::string>{}(std::to_string(i)) % 2147483647rm d << '\n';
             return;
         }*/
     }
@@ -156,10 +156,10 @@ void del_test2() {
 
 void string_test() {
     srand(time(0));
-    Sirius::BTree<std::string, int, 512> btree("data.db");
+    Sirius::BTree<std::string, int, 1024> btree("data.db");
     std::map<std::string, int> std_map;
 
-    const int TOTAL = 100000, DELETE = 100000;
+    const int TOTAL = 1000000, DELETE = 1000000;
 
     CLOCKINIT()
 
@@ -188,7 +188,7 @@ void string_test() {
     STANDINGBY()
     for (auto it = std_map.begin(); cnt < DELETE; it++, cnt++) {
         btree.del(it->first);
-        std::cout << cnt << '\n';
+        //std::cout << cnt << '\n';
     }
     COMPLETE("del")
     btree.display();

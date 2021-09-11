@@ -1,6 +1,6 @@
 #include "utils.hpp"
 
 int main() {
-    del_test2();
+    string_test();
     return 0;
 }

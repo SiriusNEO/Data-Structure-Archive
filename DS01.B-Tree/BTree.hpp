@@ -21,7 +21,7 @@ namespace Sirius {
     class BTree {
         typedef int fpos_t; //约定文件上的位置均用 int32 表示
         typedef int hash_t; //key 值统一经过哈希, 类型约定为 int32 (-1表示不存在)
-        static const int HASH_MOD = (1073741827);
+        static const int HASH_MOD = (2147483647);
         static const fpos_t NULL_NUM = -1; //空文件位置
         static const int NODE_MIN_SIZE = (M + 1) / 2 - 1; //除根节点外, BTreeNode size下限
 
@@ -92,7 +92,7 @@ namespace Sirius {
         } base;
 
         FILE *data;
-        LRUCache<BTreeNode, 1> disk;
+        LRUCache<BTreeNode, 3000> disk;
 
         /*
          * 内部函数, 获取一个内存空位, 用于开一块新的BTreeNode
