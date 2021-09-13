@@ -7,7 +7,7 @@
 ### TO DO
 
 - [x] B-Tree with Cache
-- [ ] RedBlackTree (from Bottom to Top)
+- [x] RedBlackTree (from Bottom to Top)
 - [ ] RedBlackTree (from Top to Bottom)
-- [ ] AVLTree
+- [x] AVLTree
 - [ ] SkipList
