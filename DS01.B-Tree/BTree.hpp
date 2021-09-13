@@ -33,7 +33,7 @@ namespace Sirius {
          */
         struct BTreeNode {
             fpos_t parent;
-            int siz;
+            size_t siz;
             hash_t key[M + 1]; //关键字
             Val val[M + 1]; //数据位置
             fpos_t son[M + 2]; //子节点指针
@@ -422,6 +422,8 @@ namespace Sirius {
             fwrite(reinterpret_cast<char *>(&base), sizeof(TreeBase), 1, data);
             fclose(data);
         }
+
+        size_t size() const {return base.siz;}
 
         void display() {
             printf("\n* --- BTree (%d level) --- *\n", M);

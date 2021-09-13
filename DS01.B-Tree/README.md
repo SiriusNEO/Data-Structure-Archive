@@ -12,6 +12,28 @@
 
 
 
+### 接口
+
+支持基本的 CRUD 和基本信息显示
+
+```c++
+//find与display不声明为const原因是它们的read/write操作会更新cache
+
+bool insert(const Key& key, const Val& val);
+
+bool find(const Key& key, Val& val);
+
+bool modify(const Key& key, const Val& val);
+
+bool del(const Key& key);
+
+size_t size();
+
+void display();
+```
+
+
+
 ### 问题
 
 - ~~测试中 `del` 出现 bug~~ 2021.9.11 fixed

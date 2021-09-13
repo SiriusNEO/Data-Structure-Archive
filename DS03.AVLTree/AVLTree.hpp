@@ -11,7 +11,7 @@
 
 namespace Sirius {
 
-#define DEBUG(_x) std::cout << _x << '\n';
+#define DEBUG(_x) //std::cout << _x << '\n';
 
     /*
      * AVL树
@@ -61,12 +61,12 @@ namespace Sirius {
             return RIGHT;
         }
 
-        int getHeight(AVLNode *node) const {
+        int getHeight(AVLNode *node) const { // 获得高度, 主要处理 nullptr 情况
             if (node == nullptr) return 0;
             return node->height;
         }
 
-        void heightUpdate(AVLNode *node) {
+        void heightUpdate(AVLNode *node) { // 更新高度
             if (node == nullptr) return;
             node->height = std::max(getHeight(node->leftSon), getHeight(node->rightSon)) + 1;
         }
@@ -126,7 +126,12 @@ namespace Sirius {
             heightUpdate(parentNode);
         }
 
-        void fix(AVLNode *node) { // 修改该节点平衡, 进行一次或两次旋转
+        /*
+         * 根据平衡因子进行旋转调整
+         * 更新高度
+         * 向上递归, 注意递归的对象为原parent节点
+         */
+        void fix(AVLNode *node) {
             if (node == nullptr) return;
 
             int factor = getFactor(node);
@@ -169,10 +174,16 @@ namespace Sirius {
             if (root != nullptr) delete root;
         }
 
+        size_t size() const {return siz;}
+
+        /*
+         * 插入, 非递归版本
+         */
         bool insert(const Key& key, const Val& val) {
             AVLNode *node = root, *newNode = new AVLNode(key, val);
             if (node == nullptr) {
                 root = newNode;
+                ++siz;
                 return true;
             }
             while (true) {
@@ -198,7 +209,51 @@ namespace Sirius {
             }
 
             fix(newNode);
+            ++siz;
             return true;
+        }
+
+        /*
+         * 删除, 先找到, 若为非叶子节点采用替身法
+         * 删除成功后直接对删除位置的parentNode fix
+         */
+        bool del(const Key& key) {
+            AVLNode *node = root;
+            while (node != nullptr) {
+                if (Compare()(key, node->key)) node = node->leftSon;
+                else if (Compare()(node->key, key)) node = node->rightSon;
+                else {
+                    DEBUG("del found!")
+                    AVLNode *parentNode, *targetNode;
+                    if (node->height != 1) { // 利用高度判断是否为叶
+                        if (node->leftSon) {
+                            targetNode = node->leftSon;
+                            while (targetNode->rightSon != nullptr) targetNode = targetNode->rightSon;
+                        } else {
+                            targetNode = node->rightSon;
+                            while (targetNode->leftSon != nullptr) targetNode = targetNode->leftSon;
+                        }
+                    } else { // 为叶节点
+                        targetNode = node;
+                    }
+                    node->key = targetNode->key;
+                    node->val = targetNode->val;
+                    parentNode = targetNode->parent;
+                    SideType side = getSide(targetNode);
+
+                    if (side == LEFT) parentNode->leftSon = nullptr;
+                    else if (side == RIGHT) parentNode->rightSon = nullptr;
+                    else { // 删除根节点
+                        root = nullptr;
+                    }
+                    delete targetNode;
+
+                    fix(parentNode);
+                    --siz;
+                    return true;
+                }
+            }
+            return false;
         }
 
         bool find(const Key& key, Val& val) const {
@@ -215,8 +270,29 @@ namespace Sirius {
             return false;
         }
 
+        bool modify(const Key& key, const Val& val) {
+            AVLNode *node = root;
+            while (node != nullptr) {
+                if (Compare()(key, node->key)) node = node->leftSon;
+                else if (Compare()(node->key, key)) node = node->rightSon;
+                else {
+                    DEBUG("modify")
+                    node->val = val;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         void display() const {
-            root->display();
+            std::cout << "* --- AVLTree --- *\n";
+            std::cout << "root: " << root << '\n';
+            std::cout << "size: " << siz << '\n';
+            if (root) {
+                root->display();
+            } else {
+                std::cout << "<empty tree>\n";
+            }
         }
     };
 }
