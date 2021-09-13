@@ -16,7 +16,7 @@ namespace Sirius {
     /*
      * AVL树
      */
-    template<class Key, class Val, class Compare = std::less<Key>> // 小于, strong compare
+    template<class Key, class Val, class Compare = std::less<Key> > // 小于, strong compare
     class AVLTree {
 
         enum SideType {NULL_SIDE, LEFT, RIGHT};
