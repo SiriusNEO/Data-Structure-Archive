@@ -39,8 +39,6 @@ namespace Sirius {
             BaseNode(int _level): level(_level) {
                 for (int i = 0; i <= MAX_LEVEL; ++i) pre[i] = nxt[i] = nullptr;
             }
-
-            ~BaseNode() { if (nxt[0]) delete nxt[0];}
         };
 
         struct DataNode: public BaseNode {
@@ -96,9 +94,13 @@ namespace Sirius {
             for (int i = 0; i <= MAX_LEVEL; ++i) head[i] = newHead;
         }
 
-        ~SkipList() {
-            std::cout << "destruct\n";
-            delete head[0];
+        ~SkipList() { // 注意, 链表析构不能写成递归形式, 数据量10w多就会爆栈
+            NodeCur nowNode = head[0], nxtNode = head[0]->nxt[0];
+            while (nowNode) {
+                delete nowNode;
+                nowNode = nxtNode;
+                if (nxtNode) nxtNode = nxtNode->nxt[0];
+            }
         }
 
         bool insert(const Key& key, const Val& val) {
@@ -142,6 +144,30 @@ namespace Sirius {
                 if (node->nxt[i] && !Compare()(key, node->nxt[i]->getKey())) {
                     DEBUG("found!")
                     val = node->nxt[i]->getVal();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool del(const Key& key) {
+            NodeCur node = head[nowMaxLevel];
+            for (int i = nowMaxLevel; i >= 0; --i) {
+                while (node->nxt[i] != nullptr && Compare()(node->nxt[i]->getKey(), key))
+                    node = node->nxt[i];
+                if (node->nxt[i] && !Compare()(key, node->nxt[i]->getKey())) {
+                    NodeCur delNode = node->nxt[i];
+                    for (int j = i; j >= 0; --j) {
+                        if (delNode->pre[j] == head[j] && delNode->nxt[j] == nullptr && j > 0) {
+                            --nowMaxLevel; // 第 j 层置空, 0 层置空时仍显示最大层数为 0
+                        }
+                        if (delNode->nxt[j]) {
+                            delNode->nxt[j]->pre[j] = delNode->pre[j];
+                        }
+                        delNode->pre[j]->nxt[j] = delNode->nxt[j];
+                    }
+                    delete delNode;
+                    --siz;
                     return true;
                 }
             }
