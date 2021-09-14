@@ -1,5 +1,4 @@
 .idea/
-cmake-build-debug/
 code
 core
 data.db

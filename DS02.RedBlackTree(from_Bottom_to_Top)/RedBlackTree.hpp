@@ -15,7 +15,10 @@ namespace Sirius {
      * 红黑树, modified from Sirius's STLite map
      */
 
-    template<class Key, class T, class Compare = std::less <Key> >
+    template<class Key,
+             class T,
+             class Compare = std::less <Key>
+             >
     class RedBlackTree {
     private:
         typedef std::pair<const Key, T> valueType;
