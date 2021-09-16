@@ -13,7 +13,7 @@
 
 namespace Sirius {
 
-    #define DEBUG(_x) std::cout << _x << '\n';
+    #define DEBUG(_x) //std::cout << _x << '\n';
 
     /*
      * 二项堆, 由许多二项树构成
@@ -24,8 +24,13 @@ namespace Sirius {
         static const int LEVEL_INF = 100002;
 
         public:
+
+            // 使用宏定义简化类型
+            // 不使用 typedef 是为了避免类型声明先后问题
             #define NodeCur std::shared_ptr<Node>
             #define TreeCur std::shared_ptr<BinomialTree>
+            
+            // 私有成员大多是 static 的工具函数
 
             /*
              * 节点部分
@@ -54,13 +59,13 @@ namespace Sirius {
             struct BinomialTree {
                 int level; // 阶数, 即 Bk 里的 k
                 NodeCur root;
-                TreeCur nxt; // 用链表形式连接
+                TreeCur pre, nxt; // 用链表形式连接
                 
-                explicit BinomialTree(const T& _data):level(0), nxt(nullptr) {
+                explicit BinomialTree(const T& _data):level(0), pre(nullptr), nxt(nullptr) {
                     root = std::make_shared<Node> (_data);
                 }
 
-                BinomialTree(int _level, NodeCur _root):level(_level), root(_root), nxt(nullptr) {}
+                BinomialTree(int _level, NodeCur _root):level(_level), root(_root), pre(nullptr), nxt(nullptr) {}
 
                 void display() {
                     std::cout << "\n* --- Binomial Tree in " << this << " --- *\n";
@@ -112,15 +117,19 @@ namespace Sirius {
              */
             static void append(TreeCur &treeListHead, TreeCur &treeListTail, TreeCur newTree) {
                 if (treeListHead == nullptr && treeListTail == nullptr) {
-                    treeListHead = treeListHead = newTree;
+                    treeListHead = treeListTail = newTree;
                     return;
                 }
+                assert(treeListTail != nullptr);
                 treeListTail->nxt = newTree;
+                newTree->pre = treeListTail;
                 treeListTail = newTree;
             }
 
         public:
             BinomialHeap():treeListHead(nullptr), siz(0) {}
+
+            BinomialHeap(TreeCur _treeListHead, size_t _siz):treeListHead(_treeListHead), siz(_siz) {}
 
             explicit BinomialHeap(const T& _data):siz(1) {
                 treeListHead = std::make_shared<BinomialTree>(_data);
@@ -158,12 +167,16 @@ namespace Sirius {
                     if (carryTree == nullptr || (carryLevel > thisLevel && carryLevel > otherLevel)) {
                         if (thisLevel < otherLevel) {
                             append(treeListHead, newTreeListTail, thisTree);
+                            thisTree = thisTreeNxt;
                         } 
                         else if (thisLevel > otherLevel) {
                             append(treeListHead, newTreeListTail, otherTree);
+                            otherTree = otherTreeNxt;
                         } 
                         else { //thisLevel == otherLevel
-                            carryTree = treeMerge(thisTree, otherTree);
+                            carryTree = treeMerge(thisTree, otherTree);        
+                            thisTree = thisTreeNxt;
+                            otherTree = otherTreeNxt;
                         }
                     } else {
                         if (carryLevel < thisLevel && carryLevel < otherLevel) {
@@ -172,18 +185,19 @@ namespace Sirius {
                         } 
                         else if (carryLevel == thisLevel && thisLevel < otherLevel) {
                             carryTree = treeMerge(thisTree, carryTree);
+                            thisTree = thisTreeNxt;
                         }
                         else if (carryLevel == otherLevel && otherLevel < thisLevel) {
                             carryTree = treeMerge(otherTree, carryTree);
+                            otherTree = otherTreeNxt;
                         }
                         else if (carryLevel == otherLevel && thisLevel == otherLevel) {
                             append(treeListHead, newTreeListTail, carryTree);
-                            carryTree = treeMerge(thisTree, otherTree);
+                            carryTree = treeMerge(thisTree, otherTree);        
+                            thisTree = thisTreeNxt;
+                            otherTree = otherTreeNxt;
                         }
                     }
-
-                    thisTree = thisTreeNxt;
-                    otherTree = otherTreeNxt;
                 }
             }
 
@@ -193,11 +207,53 @@ namespace Sirius {
             }
 
             T top() const {
-
+                TreeCur tree = treeListHead;
+                if (tree == nullptr) {
+                    //empty
+                    throw "Heap is Empty!\n";
+                }
+                T ret = tree->root->data;
+                while (tree->nxt != nullptr) {
+                    if (Compare()(tree->nxt->root->data, ret)) 
+                        ret = tree->nxt->root->data;
+                    tree = tree->nxt;
+                }
+                return ret;
             }
 
             void pop() {
+                TreeCur tree = treeListHead;
+                if (tree == nullptr) {
+                    //empty
+                    throw "Heap is Empty!\n";
+                }
+                TreeCur minTree = tree;
+                while (tree->nxt != nullptr) {
+                    if (Compare()(tree->nxt->root->data, minTree->root->data)) 
+                        minTree = tree;
+                    tree = tree->nxt;
+                }
 
+                // 从原根表删除
+                if (minTree->pre != nullptr) {
+                    minTree->pre->nxt = minTree->nxt;
+                }
+                if (minTree->nxt != nullptr) {
+                    minTree->nxt->pre = minTree->pre;
+                }
+                if (minTree == treeListHead) treeListHead = minTree->nxt;
+
+                // 根节点的 son-vector 阶数递增
+                TreeCur newTreeListHead = nullptr, newTreeListTail = nullptr;
+
+                for (int i = 0; i < minTree->root->son.size(); ++i) {
+                    TreeCur sonTree = std::make_shared<BinomialTree>(i, minTree->root->son[i]);
+                    append(newTreeListHead, newTreeListTail, sonTree);
+                }
+
+                BinomialHeap newHeap(newTreeListHead, (1<<minTree->root->son.size())-1);
+
+                merge(newHeap);
             }
 
             void display() {
