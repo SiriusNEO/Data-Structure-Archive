@@ -59,13 +59,12 @@ namespace Sirius {
             struct BinomialTree {
                 int level; // 阶数, 即 Bk 里的 k
                 NodeCur root;
-                TreeCur pre, nxt; // 用链表形式连接
                 
-                explicit BinomialTree(const T& _data):level(0), pre(nullptr), nxt(nullptr) {
+                explicit BinomialTree(const T& _data):level(0) {
                     root = std::make_shared<Node> (_data);
                 }
 
-                BinomialTree(int _level, NodeCur _root):level(_level), root(_root), pre(nullptr), nxt(nullptr) {}
+                BinomialTree(int _level, NodeCur _root):level(_level), root(_root) {}
 
                 void display() {
                     std::cout << "\n* --- Binomial Tree in " << this << " --- *\n";
@@ -76,7 +75,7 @@ namespace Sirius {
             };
 
             size_t siz;
-            TreeCur treeListHead;
+            std::vector<TreeCur> treeList;
 
             /*
              * 合并两棵同阶树, 返回新树
@@ -105,11 +104,6 @@ namespace Sirius {
                 return tree->level;
             }
 
-            static inline TreeCur getNxt(TreeCur tree) { // 同样处理空的情况
-                if (tree == nullptr) return nullptr;
-                return tree->nxt; 
-            }
-
             /*
              * 往给定根表中添加一个元素
              * 注意要传递链表头与链表尾的引用, 头用于新开根表时赋值, 尾用于每次更新
@@ -127,12 +121,12 @@ namespace Sirius {
             }
 
         public:
-            BinomialHeap():treeListHead(nullptr), siz(0) {}
+            BinomialHeap():siz(0) {}
 
-            BinomialHeap(TreeCur _treeListHead, size_t _siz):treeListHead(_treeListHead), siz(_siz) {}
+            BinomialHeap(const std::vector<TreeCur>& _treeList, size_t _siz):siz(), treeList(_treeList) {}
 
             explicit BinomialHeap(const T& _data):siz(1) {
-                treeListHead = std::make_shared<BinomialTree>(_data);
+                treeList.push_back(std::make_shared<BinomialTree>(_data));
             }
 
             /*
@@ -142,21 +136,16 @@ namespace Sirius {
             void merge(BinomialHeap& other) {
                 siz += other.siz;
 
-                TreeCur thisTree = treeListHead;
-                TreeCur otherTree = other.treeListHead;
+                int thisTreePtr = 0;
+                int otherTreePtr = 0;
                 TreeCur carryTree = nullptr;
-                TreeCur newTreeListTail = nullptr;
                 
-                treeListHead = nullptr;
+                std::vector<TreeCur> newTreeList;
 
-                while (thisTree != nullptr || otherTree != nullptr || carryTree != nullptr) {
+                while (thisTreePtr < treeList.size() || otherTreePtr < other.treeList.size() || carryTree != nullptr) {
+                    TreeCur thisTree = (thisTreePtr < treeList.size()) ? treeList[thisTreePtr] : nullptr;
+                    TreeCur otherTree = (otherTreePtr < other.treeList.size()) ? other.treeList[otherTreePtr] : nullptr;
 
-                    // 由于 treeMerge 操作可能会删除原指针, 先存下下一个位置以便最后更新
-                    TreeCur thisTreeNxt = getNxt(thisTree);
-                    DEBUG("this nxt: " << thisTreeNxt)
-                    TreeCur otherTreeNxt = getNxt(otherTree);
-                    DEBUG("other nxt: " << otherTreeNxt)
-                    
                     int thisLevel = getLevel(thisTree);
                     int otherLevel = getLevel(otherTree);
                     int carryLevel = getLevel(carryTree);
@@ -164,41 +153,47 @@ namespace Sirius {
                     DEBUG("merging... " << "this: " << thisTree << " other: " << otherTree << " carry: " << carryTree)
                     DEBUG("level... " << "this: " << thisLevel << " other: " << otherLevel << " carry: " << carryLevel)
 
-                    if (carryTree == nullptr || (carryLevel > thisLevel && carryLevel > otherLevel)) {
+                    if (carryTree == nullptr || (carryLevel > thisLevel || carryLevel > otherLevel)) {
                         if (thisLevel < otherLevel) {
-                            append(treeListHead, newTreeListTail, thisTree);
-                            thisTree = thisTreeNxt;
+                            newTreeList.push_back(thisTree);
+                            ++thisTreePtr;
                         } 
                         else if (thisLevel > otherLevel) {
-                            append(treeListHead, newTreeListTail, otherTree);
-                            otherTree = otherTreeNxt;
+                            newTreeList.push_back(otherTree);
+                            ++otherTreePtr;
                         } 
                         else { //thisLevel == otherLevel
+                            assert(carryTree == nullptr);
                             carryTree = treeMerge(thisTree, otherTree);        
-                            thisTree = thisTreeNxt;
-                            otherTree = otherTreeNxt;
+                            ++thisTreePtr;
+                            ++otherTreePtr;
                         }
-                    } else {
+                    } else { // carryLevel <= thisLevel && carryLevel <= otherLevel
                         if (carryLevel < thisLevel && carryLevel < otherLevel) {
-                            append(treeListHead, newTreeListTail, carryTree);
+                            newTreeList.push_back(carryTree);
                             carryTree = nullptr;
                         } 
                         else if (carryLevel == thisLevel && thisLevel < otherLevel) {
                             carryTree = treeMerge(thisTree, carryTree);
-                            thisTree = thisTreeNxt;
+                            ++thisTreePtr;
                         }
                         else if (carryLevel == otherLevel && otherLevel < thisLevel) {
                             carryTree = treeMerge(otherTree, carryTree);
-                            otherTree = otherTreeNxt;
+                            ++otherTreePtr;
                         }
                         else if (carryLevel == otherLevel && thisLevel == otherLevel) {
-                            append(treeListHead, newTreeListTail, carryTree);
+                            newTreeList.push_back(carryTree);
                             carryTree = treeMerge(thisTree, otherTree);        
-                            thisTree = thisTreeNxt;
-                            otherTree = otherTreeNxt;
+                            ++thisTreePtr;
+                            ++otherTreePtr;
                         }
                     }
                 }
+                treeList = newTreeList;
+            }
+
+            size_t size() const {
+                return siz;
             }
 
             void push(const T& data) {
@@ -206,72 +201,64 @@ namespace Sirius {
                 merge(newHeap);
             }
 
-            T top() const {
-                TreeCur tree = treeListHead;
-                if (tree == nullptr) {
-                    //empty
-                    throw "Heap is Empty!\n";
+            bool empty() const {return siz == 0;}
+
+            const T& top() const {
+                TreeCur minTree;
+
+                for (const TreeCur& tree : treeList) {
+                    if (minTree == nullptr || Compare()(tree->root->data, minTree->root->data))
+                        minTree = tree;
                 }
-                T ret = tree->root->data;
-                while (tree->nxt != nullptr) {
-                    if (Compare()(tree->nxt->root->data, ret)) 
-                        ret = tree->nxt->root->data;
-                    tree = tree->nxt;
-                }
-                return ret;
+
+                return minTree->root->data;
             }
 
             void pop() {
-                TreeCur tree = treeListHead;
-                if (tree == nullptr) {
-                    //empty
-                    throw "Heap is Empty!\n";
-                }
-                TreeCur minTree = tree;
-                while (tree->nxt != nullptr) {
-                    if (Compare()(tree->nxt->root->data, minTree->root->data)) 
+                TreeCur minTree;
+                size_t newSize = siz - 1;
+
+                for (const TreeCur& tree : treeList) {
+                    if (minTree == nullptr || Compare()(tree->root->data, minTree->root->data))
                         minTree = tree;
-                    tree = tree->nxt;
                 }
 
                 // 从原根表删除
-                if (minTree->pre != nullptr) {
-                    minTree->pre->nxt = minTree->nxt;
-                }
-                if (minTree->nxt != nullptr) {
-                    minTree->nxt->pre = minTree->pre;
-                }
-                if (minTree == treeListHead) treeListHead = minTree->nxt;
+                for (int i = 0; i < treeList.size(); ++i) {
+                    if (treeList[i] == minTree) {
+                        for (int j = i + 1; j < treeList.size(); ++j)
+                            treeList[j - 1] = treeList[j];
+                        treeList.pop_back();    
+                        break;    
+                    }
+                }    
 
                 // 根节点的 son-vector 阶数递增
-                TreeCur newTreeListHead = nullptr, newTreeListTail = nullptr;
-
+                std::vector<TreeCur> newTreeList;
                 for (int i = 0; i < minTree->root->son.size(); ++i) {
                     TreeCur sonTree = std::make_shared<BinomialTree>(i, minTree->root->son[i]);
-                    append(newTreeListHead, newTreeListTail, sonTree);
+                    newTreeList.push_back(sonTree);
                 }
 
-                BinomialHeap newHeap(newTreeListHead, (1<<minTree->root->son.size())-1);
+                BinomialHeap newHeap(newTreeList, 0); // siz doesn't matter here
 
                 merge(newHeap);
+
+                siz = newSize;
             }
 
             void display() {
                 std::cout << "\n* --- Binomial Heap --- *\n";
                 std::cout << "siz: " << siz << '\n';
                 std::cout << "treeList: \n";
-                
-                TreeCur tree = treeListHead;
 
-                if (tree == nullptr) {
+                if (empty()) {
                     std::cout << "<empty>\n";
                     return;
                 }
 
-                while (tree != nullptr) {
+                for (const TreeCur& tree : treeList)
                     tree->display();
-                    tree = tree->nxt;
-                }
             }
     };
 }
